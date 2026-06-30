@@ -3,7 +3,13 @@
 
 $ErrorActionPreference = 'Stop'
 
-$ConfigPath = 'C:\ProgramData\UsbBackup\config.json'
+$InstallDir = 'C:\ProgramData\UsbBackup'
+$ConfigPath = Join-Path $InstallDir 'config.json'
+
+# Code commun (validation de config). Sans la lib, sortie silencieuse.
+$libPath = Join-Path $PSScriptRoot 'lib-config.ps1'
+if (-not (Test-Path $libPath)) { exit 0 }
+. $libPath
 
 # Écrit une ligne horodatée dans le log du jour (best-effort).
 function Write-Log {
@@ -24,20 +30,27 @@ if (-not $mutex.WaitOne(0)) { exit 0 }
 $logDir = $null
 $exitCode = 0
 try {
-    # Lire la config PC.
-    if (-not (Test-Path $ConfigPath)) {
-        # Pas de log possible sans logPath ; sortie silencieuse.
+    # Lire et valider la config PC via la lib commune.
+    $result = Read-UsbBackupConfig -Path $ConfigPath
+
+    # logPath best-effort pour journaliser, même en cas de config invalide.
+    if ($result.Config -and $result.Config.logPath) {
+        $logDir = $result.Config.logPath
+        if (-not (Test-Path $logDir)) { try { New-Item -ItemType Directory -Path $logDir -Force | Out-Null } catch { } }
+    }
+
+    if (-not $result.Ok) {
+        Write-Log ("config.json invalide : " + $result.Error) $logDir
         exit 0
     }
-    $config = Get-Content -Path $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
 
+    $config            = $result.Config
     $destinationRoot   = $config.destinationRoot
     $deletionGraceDays = [double]$config.deletionGraceDays
     $stateDir          = $config.stateDir
     $logDir            = $config.logPath
     $ejectAfter        = [bool]$config.ejectAfter
 
-    if ($logDir   -and -not (Test-Path $logDir))   { New-Item -ItemType Directory -Path $logDir   -Force | Out-Null }
     if ($stateDir -and -not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null }
 
     # Trouver la clé : premier volume amovible contenant .usb-backup.json.

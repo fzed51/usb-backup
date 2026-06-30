@@ -7,6 +7,28 @@ $ErrorActionPreference = 'Stop'
 $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
 if (-not $admin) { Write-Error 'À lancer en administrateur.'; exit 1 }
 
+# Code commun (validation de config).
+$libPath = Join-Path $PSScriptRoot 'lib-config.ps1'
+if (-not (Test-Path $libPath)) { Write-Error "Lib absente : $libPath."; exit 1 }
+. $libPath
+
+# Garde : refuser l'installation si le script ou sa config ne sont pas en place.
+$installDir = 'C:\ProgramData\UsbBackup'
+$scriptPath = Join-Path $installDir 'backup.ps1'
+$configPath = Join-Path $installDir 'config.json'
+
+if (-not (Test-Path $scriptPath)) {
+    Write-Error "Script absent : $scriptPath. Déposez backup.ps1 avant d'installer le watcher."
+    exit 1
+}
+
+# Valider la config PC via la lib commune.
+$result = Read-UsbBackupConfig -Path $configPath
+if (-not $result.Ok) {
+    Write-Error ("config.json : " + $result.Error)
+    exit 1
+}
+
 # Idempotence : supprimer les objets existants avant de recréer.
 Get-WmiObject -Namespace root\subscription -Class __FilterToConsumerBinding -ErrorAction SilentlyContinue |
     Where-Object { $_.Consumer -match 'USBBackupConsumer' } |

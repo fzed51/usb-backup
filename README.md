@@ -17,6 +17,7 @@ Quand une clé USB marquée est branchée, son contenu est copié vers un dossie
 | Fichier | Rôle |
 |---|---|
 | `backup.ps1` | Script de sauvegarde (lancé par WMI à chaque branchement) |
+| `lib-config.ps1` | Code commun : lecture et validation de `config.json` |
 | `install-watcher.ps1` | Installe l'abonnement WMI (admin) |
 | `uninstall-watcher.ps1` | Retire l'abonnement WMI (admin) |
 | `config.example.json` | Modèle de config côté PC |
@@ -26,11 +27,9 @@ Quand une clé USB marquée est branchée, son contenu est copié vers un dossie
 
 ## Installation sur un poste
 
-### 1. Déposer les fichiers dans le dossier d'installation
+### 1. Cloner le dépôt dans le dossier d'installation
 
-Le watcher WMI lance le script depuis un chemin **fixe** : `C:\ProgramData\UsbBackup\`. Seul `backup.ps1` doit obligatoirement résider à cet emplacement. Deux méthodes au choix.
-
-**Méthode A — cloner le dépôt directement au bon endroit (recommandé)**
+Le watcher WMI lance le script depuis un chemin **fixe** : `C:\ProgramData\UsbBackup\`. Les scripts dépendent les uns des autres (`backup.ps1` et `install-watcher.ps1` chargent `lib-config.ps1`) : il faut donc cloner le dépôt **directement** à cet emplacement.
 
 Le dossier doit être inexistant ou vide ; `git clone` le crée :
 
@@ -38,19 +37,7 @@ Le dossier doit être inexistant ou vide ; `git clone` le crée :
 git clone https://github.com/fzed51/usb-backup.git "C:\ProgramData\UsbBackup"
 ```
 
-Avantage : `backup.ps1` est déjà au bon chemin, et un `git pull` suffit pour mettre à jour. `config.json` (créé à l'étape 2) n'étant pas suivi par git, il n'est pas écrasé aux mises à jour.
-
-**Méthode B — copier seulement le script**
-
-Si le dépôt est déjà cloné ailleurs, copier uniquement `backup.ps1` :
-
-```powershell
-$dest = 'C:\ProgramData\UsbBackup'
-New-Item -ItemType Directory -Path $dest -Force | Out-Null
-Copy-Item '.\backup.ps1' -Destination $dest -Force
-```
-
-> Dans ce cas, le clone du dépôt peut rester où vous voulez ; il ne sert que de source.
+Un `git pull` suffit pour mettre à jour. `config.json` (créé à l'étape 2) n'étant pas suivi par git, il n'est pas écrasé aux mises à jour.
 
 ### 2. Créer la config du PC
 
