@@ -92,7 +92,9 @@ try {
     $logFile = Join-Path $logDir ('backup-{0}.log' -f (Get-Date).ToString('yyyyMMdd'))
     foreach ($src in $sources) {
         if ($src -eq '.') {
-            $srcPath = $key.TrimEnd('\')
+            # Garder le backslash : robocopy avec une lettre nue ("E:") cible le
+            # répertoire courant du lecteur, pas sa racine -> ne récurse pas.
+            $srcPath = $key
             $dstPath = $destination
         } else {
             $srcPath = Join-Path $key $src
