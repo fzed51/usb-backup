@@ -1,0 +1,7 @@
+# Scripts PowerShell : stockés en UTF-8 dans le dépôt (diffs lisibles),
+# restitués en UTF-16 LE + CRLF au checkout (requis par PowerShell 5.1
+# pour lire correctement les accents).
+*.ps1 working-tree-encoding=UTF-16 eol=CRLF
+
+# JSON en UTF-8.
+*.json text eol=lf
