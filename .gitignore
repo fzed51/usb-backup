@@ -1,0 +1,20 @@
+# Config locale (générée depuis config.example.json)
+config.json
+
+# Données runtime générées sur le poste
+logs/
+state/
+*.log
+*.deletions.json
+
+# Artefacts Windows
+Thumbs.db
+desktop.ini
+
+# Artefacts macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
