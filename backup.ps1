@@ -132,7 +132,13 @@ try {
     }
 
     # Ensemble "clé" : fichiers présents sur la clé (avec excludes), relatifs à la clé.
-    $keyBase = $key.TrimEnd('\')
+    $extras = @()
+        $purged = 0
+        # Extras + purge : seulement si la copie a reussi. Si robocopy a echoue
+        # (>=8), la cle peut etre partiellement illisible -> ne JAMAIS deduire de
+        # suppressions d'une enumeration source incomplete.
+        if ($robocopyExit -lt 8) {
+        $keyBase = $key.TrimEnd('\')
     $cleSet  = Get-RelativeSet -Base $keyBase -Sources $sources -Extensions $includeExt -Excludes $excludePatterns -ApplyExcludes $true
 
     # Ensemble "dest" : tous les fichiers de destination avec extension incluse, relatifs à destination.
@@ -207,6 +213,10 @@ try {
     $obj = New-Object PSObject
     foreach ($rel in $newJournal.Keys) { $obj | Add-Member -NotePropertyName $rel -NotePropertyValue $newJournal[$rel] }
     ($obj | ConvertTo-Json -Depth 5) | Set-Content -Path $deletionsPath -Encoding UTF8
+        }
+        else {
+                Write-Log 'copie robocopy en echec (>=8) : extras et purge ignores (source possiblement illisible)' $logDir
+        }
 
     # Récapitulatif.
     if ($robocopyExit -lt 8) { $rcStatus = "succes/avertissement ($robocopyExit)" }
