@@ -35,7 +35,7 @@ Le watcher WMI lance le script depuis un chemin **fixe** : `C:\ProgramData\UsbBa
 Le dossier doit être inexistant ou vide ; `git clone` le crée :
 
 ```powershell
-git clone <URL_DU_DEPOT> "C:\ProgramData\UsbBackup"
+git clone https://github.com/fzed51/usb-backup.git "C:\ProgramData\UsbBackup"
 ```
 
 Avantage : `backup.ps1` est déjà au bon chemin, et un `git pull` suffit pour mettre à jour. `config.json` (créé à l'étape 2) n'étant pas suivi par git, il n'est pas écrasé aux mises à jour.
