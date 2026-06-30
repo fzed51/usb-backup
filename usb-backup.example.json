@@ -1,0 +1,6 @@
+{
+  "backupSetName": "cle-fabien",
+  "sources": ["."],
+  "includeExtensions": ["docx", "doc", "pdf", "pptx", "ppt", "xlsx", "xls"],
+  "excludePatterns": ["~$*", "*.tmp", "Thumbs.db", ".usb-backup.json"]
+}

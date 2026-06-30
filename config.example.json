@@ -1,0 +1,7 @@
+{
+  "destinationRoot": "D:\\Sauvegardes\\USB",
+  "deletionGraceDays": 60,
+  "stateDir": "C:\\ProgramData\\UsbBackup\\state",
+  "logPath": "C:\\ProgramData\\UsbBackup\\logs",
+  "ejectAfter": false
+}
