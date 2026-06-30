@@ -12,12 +12,15 @@ if (-not (Test-Path $libPath)) { exit 0 }
 . $libPath
 
 # Écrit une ligne horodatée dans le log du jour (best-effort).
+# Horodatage unique du run pour nommer le log (date + heure + minute).
+$script:LogStamp = (Get-Date).ToString('yyyyMMdd-HHmm')
+
 function Write-Log {
     param([string]$Message, [string]$LogDir)
     try {
         if ($LogDir -and (Test-Path $LogDir)) {
             $stamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-            $file  = Join-Path $LogDir ('backup-{0}.log' -f (Get-Date).ToString('yyyyMMdd'))
+            $file  = Join-Path $LogDir ('backup-{0}.log' -f $script:LogStamp)
             Add-Content -Path $file -Value ("$stamp  $Message") -Encoding UTF8
         }
     } catch { }
@@ -89,7 +92,7 @@ try {
 
     # Copie (ajouts/modifs, jamais de purge) pour chaque source.
     $robocopyExit = 0
-    $logFile = Join-Path $logDir ('backup-{0}.log' -f (Get-Date).ToString('yyyyMMdd'))
+    $logFile = Join-Path $logDir ('backup-{0}.log' -f $script:LogStamp)
     foreach ($src in $sources) {
         if ($src -eq '.') {
             # Garder le backslash : robocopy avec une lettre nue ("E:") cible le
