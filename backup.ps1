@@ -136,12 +136,8 @@ try {
 
     # Ensemble "clé" : fichiers présents sur la clé (avec excludes), relatifs à la clé.
     $extras = @()
-        $purged = 0
-        # Extras + purge : seulement si la copie a reussi. Si robocopy a echoue
-        # (>=8), la cle peut etre partiellement illisible -> ne JAMAIS deduire de
-        # suppressions d'une enumeration source incomplete.
-        if ($robocopyExit -lt 8) {
-        $keyBase = $key.TrimEnd('\')
+    $purged = 0
+    $keyBase = $key.TrimEnd('\')
     $cleSet  = Get-RelativeSet -Base $keyBase -Sources $sources -Extensions $includeExt -Excludes $excludePatterns -ApplyExcludes $true
 
     # Ensemble "dest" : tous les fichiers de destination avec extension incluse, relatifs à destination.
@@ -156,70 +152,86 @@ try {
         }
     }
 
-    # extras = dest privé de clé (comparaison insensible à la casse).
-    $extras = @()
-    foreach ($k in $destSet.Keys) {
-        if (-not $cleSet.ContainsKey($k)) { $extras += $destSet[$k] }
+    # Fiabilité de la source avant toute déduction de suppression. Bloquer si :
+    #  - robocopy a échoué (>=8) : la clé peut être partiellement illisible ;
+    #  - la clé a disparu après la copie (Test-Path faux) ;
+    #  - le scan source est vide alors que la dest ne l'est pas (anomalie).
+    # Une énumération source incomplète ferait passer des fichiers pour des
+    # suppressions -> jamais de purge sur des données non fiables.
+    $reliable = $true
+    if ($robocopyExit -ge 8) {
+        $reliable = $false
+        Write-Log 'copie robocopy en echec (>=8) : extras et purge ignores (source possiblement illisible)' $logDir
+    }
+    elseif (-not (Test-Path $key)) {
+        $reliable = $false
+        Write-Log 'cle absente apres copie : extras et purge ignores' $logDir
+    }
+    elseif ($cleSet.Count -eq 0 -and $destSet.Count -gt 0) {
+        $reliable = $false
+        Write-Log 'scan source vide mais dest non vide (anomalie) : extras et purge ignores' $logDir
     }
 
-    # Mettre à jour le journal de suppression.
-    $deletionsPath = Join-Path $stateDir ("$backupSetName.deletions.json")
-    $oldJournal = @{}
-    if (Test-Path $deletionsPath) {
-        try {
-            $parsed = Get-Content -Path $deletionsPath -Raw -Encoding UTF8 | ConvertFrom-Json
-            if ($parsed) { $parsed.PSObject.Properties | ForEach-Object { $oldJournal[$_.Name] = $_.Value } }
-        } catch { $oldJournal = @{} }
-    }
+    if ($reliable) {
+        # extras = dest privé de clé (comparaison insensible à la casse).
+        foreach ($k in $destSet.Keys) {
+            if (-not $cleSet.ContainsKey($k)) { $extras += $destSet[$k] }
+        }
 
-    $nowIso = (Get-Date).ToString('o')
-    $newJournal = @{}
-    foreach ($rel in $extras) {
-        if ($oldJournal.ContainsKey($rel)) { $newJournal[$rel] = $oldJournal[$rel] }
-        else { $newJournal[$rel] = $nowIso }
-    }
-
-    # Purge différée.
-    $purged = 0
-    $now = Get-Date
-    $toRemove = @()
-    foreach ($rel in @($newJournal.Keys)) {
-        $entryDate = $null
-        try { $entryDate = [datetime]::Parse($newJournal[$rel]) } catch { $entryDate = $now }
-        if (($now - $entryDate).TotalDays -ge $deletionGraceDays) {
-            $target = Join-Path $destination $rel
+        # Mettre à jour le journal de suppression.
+        $deletionsPath = Join-Path $stateDir ("$backupSetName.deletions.json")
+        $oldJournal = @{}
+        if (Test-Path $deletionsPath) {
             try {
-                if (Test-Path $target) { Remove-Item -Path $target -Force }
-                $purged++
-            } catch {
-                Write-Log "echec purge: $rel - $($_.Exception.Message)" $logDir
-            }
-            $toRemove += $rel
+                $parsed = Get-Content -Path $deletionsPath -Raw -Encoding UTF8 | ConvertFrom-Json
+                if ($parsed) { $parsed.PSObject.Properties | ForEach-Object { $oldJournal[$_.Name] = $_.Value } }
+            } catch { $oldJournal = @{} }
         }
-    }
-    foreach ($rel in $toRemove) { $newJournal.Remove($rel) }
 
-    # Supprimer les dossiers vides sous destination après purge.
-    if ($purged -gt 0) {
-        Get-ChildItem -Path $destination -Recurse -Directory -Force -ErrorAction SilentlyContinue |
-            Sort-Object { $_.FullName.Length } -Descending |
-            ForEach-Object {
+        $nowIso = (Get-Date).ToString('o')
+        $newJournal = @{}
+        foreach ($rel in $extras) {
+            if ($oldJournal.ContainsKey($rel)) { $newJournal[$rel] = $oldJournal[$rel] }
+            else { $newJournal[$rel] = $nowIso }
+        }
+
+        # Purge différée.
+        $now = Get-Date
+        $toRemove = @()
+        foreach ($rel in @($newJournal.Keys)) {
+            $entryDate = $null
+            try { $entryDate = [datetime]::Parse($newJournal[$rel]) } catch { $entryDate = $now }
+            if (($now - $entryDate).TotalDays -ge $deletionGraceDays) {
+                $target = Join-Path $destination $rel
                 try {
-                    if (-not (Get-ChildItem -Path $_.FullName -Force -ErrorAction SilentlyContinue)) {
-                        Remove-Item -Path $_.FullName -Force
-                    }
-                } catch { }
+                    if (Test-Path $target) { Remove-Item -Path $target -Force }
+                    $purged++
+                } catch {
+                    Write-Log "echec purge: $rel - $($_.Exception.Message)" $logDir
+                }
+                $toRemove += $rel
             }
-    }
+        }
+        foreach ($rel in $toRemove) { $newJournal.Remove($rel) }
 
-    # Sauvegarder le nouveau journal.
-    $obj = New-Object PSObject
-    foreach ($rel in $newJournal.Keys) { $obj | Add-Member -NotePropertyName $rel -NotePropertyValue $newJournal[$rel] }
-    ($obj | ConvertTo-Json -Depth 5) | Set-Content -Path $deletionsPath -Encoding UTF8
+        # Supprimer les dossiers vides sous destination après purge.
+        if ($purged -gt 0) {
+            Get-ChildItem -Path $destination -Recurse -Directory -Force -ErrorAction SilentlyContinue |
+                Sort-Object { $_.FullName.Length } -Descending |
+                ForEach-Object {
+                    try {
+                        if (-not (Get-ChildItem -Path $_.FullName -Force -ErrorAction SilentlyContinue)) {
+                            Remove-Item -Path $_.FullName -Force
+                        }
+                    } catch { }
+                }
         }
-        else {
-                Write-Log 'copie robocopy en echec (>=8) : extras et purge ignores (source possiblement illisible)' $logDir
-        }
+
+        # Sauvegarder le nouveau journal.
+        $obj = New-Object PSObject
+        foreach ($rel in $newJournal.Keys) { $obj | Add-Member -NotePropertyName $rel -NotePropertyValue $newJournal[$rel] }
+        ($obj | ConvertTo-Json -Depth 5) | Set-Content -Path $deletionsPath -Encoding UTF8
+    }
 
     # Récapitulatif.
     if ($robocopyExit -lt 8) { $rcStatus = "succes/avertissement ($robocopyExit)" }
