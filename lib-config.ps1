@@ -1,5 +1,41 @@
-# lib-config.ps1 - Code commun : lecture et validation de config.json (config PC).
-# Dot-sourcé par backup.ps1 et install-watcher.ps1.
+# lib-config.ps1 - Code commun : logging, resolution de git, lecture/validation de config.json.
+# Dot-sourcé par backup.ps1, update.ps1 et install-watcher.ps1.
+
+# Horodatage unique du run pour nommer le log (date + heure + minute).
+$script:LogStamp = (Get-Date).ToString('yyyyMMdd-HHmm')
+
+# Écrit une ligne horodatée dans le log du jour (best-effort).
+function Write-Log {
+    param([string]$Message, [string]$LogDir)
+    try {
+        if ($LogDir -and (Test-Path $LogDir)) {
+            $stamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+            $file  = Join-Path $LogDir ('backup-{0}.log' -f $script:LogStamp)
+            Add-Content -Path $file -Value ("$stamp  $Message") -Encoding UTF8
+        }
+    } catch { }
+}
+
+# Résout le chemin de git.exe. SYSTEM n'hérite que du PATH Machine : on sonde donc
+# d'abord un chemin configuré, puis le registre GitForWindows, puis les emplacements
+# connus, enfin le PATH. Retourne le chemin ou $null.
+function Resolve-Git {
+    param([string]$Configured)
+    if ($Configured -and (Test-Path $Configured)) { return $Configured }
+    foreach ($k in 'HKLM:\SOFTWARE\GitForWindows','HKLM:\SOFTWARE\Wow6432Node\GitForWindows') {
+        try {
+            $ip  = (Get-ItemProperty -Path $k -Name InstallPath -ErrorAction Stop).InstallPath
+            $exe = Join-Path $ip 'cmd\git.exe'
+            if (Test-Path $exe) { return $exe }
+        } catch { }
+    }
+    foreach ($p in 'C:\Program Files\Git\cmd\git.exe','C:\Program Files (x86)\Git\cmd\git.exe') {
+        if (Test-Path $p) { return $p }
+    }
+    $cmd = Get-Command git -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    return $null
+}
 
 # Lit et valide la config PC.
 # Retourne un objet : @{ Ok = [bool]; Config = [psobject|null]; Error = [string] }

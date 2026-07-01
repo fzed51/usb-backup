@@ -1,5 +1,5 @@
-# uninstall-watcher.ps1 - Retire l'abonnement WMI installé par install-watcher.ps1.
-# À lancer en administrateur.
+# uninstall-watcher.ps1 - Retire l'abonnement WMI et la tâche de mise à jour installés
+# par install-watcher.ps1. À lancer en administrateur.
 
 $ErrorActionPreference = 'Stop'
 
@@ -20,4 +20,7 @@ Get-WmiObject -Namespace root\subscription -Class __EventFilter -ErrorAction Sil
     Where-Object { $_.Name -eq 'USBVolumeArrival' } |
     ForEach-Object { $_.Delete() }
 
-Write-Host 'Abonnement WMI désinstallé.'
+# Retirer la tâche planifiée de mise à jour (sans erreur si absente).
+Unregister-ScheduledTask -TaskName 'UsbBackupUpdate' -Confirm:$false -ErrorAction SilentlyContinue
+
+Write-Host 'Abonnement WMI + tâche de mise à jour désinstallés.'

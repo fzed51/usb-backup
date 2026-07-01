@@ -11,21 +11,6 @@ $libPath = Join-Path $PSScriptRoot 'lib-config.ps1'
 if (-not (Test-Path $libPath)) { exit 0 }
 . $libPath
 
-# Écrit une ligne horodatée dans le log du jour (best-effort).
-# Horodatage unique du run pour nommer le log (date + heure + minute).
-$script:LogStamp = (Get-Date).ToString('yyyyMMdd-HHmm')
-
-function Write-Log {
-    param([string]$Message, [string]$LogDir)
-    try {
-        if ($LogDir -and (Test-Path $LogDir)) {
-            $stamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-            $file  = Join-Path $LogDir ('backup-{0}.log' -f $script:LogStamp)
-            Add-Content -Path $file -Value ("$stamp  $Message") -Encoding UTF8
-        }
-    } catch { }
-}
-
 # Mutex global anti double-exécution.
 $mutex = New-Object System.Threading.Mutex($false, 'Global\UsbBackupMutex')
 if (-not $mutex.WaitOne(0)) { exit 0 }

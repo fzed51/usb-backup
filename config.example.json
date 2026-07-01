@@ -3,5 +3,7 @@
   "deletionGraceDays": 60,
   "stateDir": "C:\\ProgramData\\UsbBackup\\state",
   "logPath": "C:\\ProgramData\\UsbBackup\\logs",
-  "ejectAfter": false
+  "ejectAfter": false,
+  "autoUpdate": true,
+  "updateIntervalHours": 20
 }
