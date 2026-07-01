@@ -10,7 +10,7 @@ $ConfigPath = Join-Path $InstallDir 'config.json'
 # Code commun (logging, résolution de git, validation config). Sans la lib, sortie silencieuse.
 $libPath = Join-Path $PSScriptRoot 'lib-config.ps1'
 if (-not (Test-Path $libPath)) { exit 0 }
-. $libPath
+try { . $libPath } catch { exit 0 }
 
 $mutex = $null
 try {
@@ -33,14 +33,14 @@ try {
     $stateDir = $config.stateDir
 
     # Activation : autoUpdate absent => activé ; explicitement $false => stop.
-    if ($null -ne $config.autoUpdate -and -not [bool]$config.autoUpdate) {
+    if ($config.autoUpdate -eq $false) {
         Write-Log 'update: auto-update desactive (autoUpdate=false)' $logDir
         exit 0
     }
 
     # Throttle : ne pas repull avant updateIntervalHours (défaut 20h).
     $intervalHours = 20
-    if ($config.updateIntervalHours) {
+    if ($null -ne $config.updateIntervalHours) {
         $tmp = 0
         if ([double]::TryParse([string]$config.updateIntervalHours, [ref]$tmp) -and $tmp -ge 0) { $intervalHours = $tmp }
     }

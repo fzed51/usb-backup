@@ -9,7 +9,7 @@ $ConfigPath = Join-Path $InstallDir 'config.json'
 # Code commun (validation de config). Sans la lib, sortie silencieuse.
 $libPath = Join-Path $PSScriptRoot 'lib-config.ps1'
 if (-not (Test-Path $libPath)) { exit 0 }
-. $libPath
+try { . $libPath } catch { exit 0 }
 
 # Mutex global anti double-exécution.
 $mutex = New-Object System.Threading.Mutex($false, 'Global\UsbBackupMutex')
